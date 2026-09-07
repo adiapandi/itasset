@@ -1,0 +1,241 @@
+// iAsset — schema through Phase 2
+// Phase 1: Identity & Access (users/roles/permissions) + audit trail.
+// Phase 2: Asset Catalog (vendors/categories/models/assets).
+// Rooms, transfers, and assignment land in Phase 3/4/5.
+// (the full target schema is sketched in the architecture doc / ERD).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== IDENTITY & ACCESS =====================
+
+model Department {
+  id              String       @id @default(cuid())
+  name            String
+  code            String       @unique
+  parentDeptId    String?
+  manager         User?        @relation("DepartmentManager", fields: [managerId], references: [id])
+  managerId       String?
+  users           User[]       @relation("UserDepartment")
+  assets          Asset[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("departments")
+}
+
+model User {
+  id            String       @id @default(cuid())
+  employeeId    String?      @unique
+  name          String
+  email         String       @unique
+  passwordHash  String
+  phone         String?
+  avatarUrl     String?
+  isActive      Boolean      @default(true)
+
+  department    Department?  @relation("UserDepartment", fields: [departmentId], references: [id])
+  departmentId  String?
+
+  managedDepts  Department[] @relation("DepartmentManager")
+
+  roles         UserRole[]
+  auditLogs     AuditLog[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  @@map("users")
+}
+
+model Role {
+  id          String            @id @default(cuid())
+  name        String            @unique   // e.g. "Super Admin", "Room PIC"
+  description String?
+  isSystem    Boolean           @default(false) // system roles (from seed) can't be deleted via UI
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  createdAt   DateTime          @default(now())
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String            @id @default(cuid())
+  code        String            @unique  // e.g. "asset.create", "transfer.approve"
+  module      String            // e.g. "asset", "transfer", "admin"
+  description String?
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId   String
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ===================== AUDIT TRAIL (foundational, used from Phase 1 on) =====================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?
+  action     String   // e.g. "user.create", "user.update"
+  entityType String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ===================== ASSET CATALOG (Phase 2) =====================
+// Rooms/transfers/assignment (current_room_id, assigned_user_id, etc.)
+// are NOT wired up yet — those land in Phase 3/4/5. Phase 2 only owns
+// the asset record itself and its catalog reference data.
+
+model Vendor {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+
+  assets        Asset[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@map("vendors")
+}
+
+model AssetCategory {
+  id               String          @id @default(cuid())
+  name             String
+  code             String          @unique
+  parentCategoryId String?
+  parentCategory   AssetCategory?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  children         AssetCategory[] @relation("CategoryHierarchy")
+
+  models           AssetModel[]
+  assets           Asset[]
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  @@map("asset_categories")
+}
+
+model AssetModel {
+  id           String        @id @default(cuid())
+  name         String
+  brand        String?
+  manufacturer String?
+  specs        Json?
+
+  category     AssetCategory @relation(fields: [categoryId], references: [id])
+  categoryId   String
+
+  assets       Asset[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@map("asset_models")
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_STORAGE
+  UNDER_MAINTENANCE
+  DAMAGED
+  LOST
+  STOLEN
+  RETIRED
+  DISPOSED
+}
+
+enum AssetCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+model Asset {
+  id                String          @id @default(cuid())
+  assetCode         String          @unique // e.g. AST-IT-000123
+  name              String
+  serialNumber      String?         @unique
+
+  category          AssetCategory   @relation(fields: [categoryId], references: [id])
+  categoryId        String
+  model             AssetModel?     @relation(fields: [modelId], references: [id])
+  modelId           String?
+  brand             String?
+
+  vendor            Vendor?         @relation(fields: [vendorId], references: [id])
+  vendorId          String?
+
+  department        Department?     @relation(fields: [departmentId], references: [id])
+  departmentId      String?
+
+  purchaseDate      DateTime?
+  purchasePrice     Decimal?        @db.Decimal(14, 2)
+  warrantyStartDate DateTime?
+  warrantyEndDate   DateTime?
+
+  status            AssetStatus     @default(AVAILABLE)
+  condition         AssetCondition  @default(GOOD)
+
+  qrCodeValue       String?         @unique
+  barcodeValue      String?
+  photoUrl          String?
+  notes             String?
+
+  // Phase 3/4 will add current_room_id / current_pic_id / assigned_user_id here.
+
+  createdBy         String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+
+  @@index([status])
+  @@index([categoryId])
+  @@map("assets")
+}

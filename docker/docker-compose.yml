@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: iasset
+      POSTGRES_PASSWORD: iasset
+      POSTGRES_DB: iasset
+    volumes:
+      - iasset_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iasset"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://iasset:iasset@db:5432/iasset?schema=public"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET}"
+      SEED_ADMIN_EMAIL: "${SEED_ADMIN_EMAIL:-admin@iasset.local}"
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-ChangeMe123!}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - iasset_uploads:/app/uploads
+
+volumes:
+  iasset_pgdata:
+  iasset_uploads:
