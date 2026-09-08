@@ -1,220 +1,65 @@
-import { prisma } from "@/lib/prisma";
-import { recordAuditLog } from "./audit-log.service";
+/**
+ * Central registry of permission codes.
+ * Later phases add more (transfer.*, maintenance.*, audit.*, report.*)
+ * but the pattern (module.action) and the way they're checked stays the same.
+ */
+export const PERMISSIONS = {
+  USER_VIEW: "user.view",
+  USER_CREATE: "user.create",
+  USER_EDIT: "user.edit",
+  USER_DELETE: "user.delete",
 
-// ===================== BUILDINGS =====================
+  ROLE_VIEW: "role.view",
+  ROLE_MANAGE: "role.manage",
 
-export async function listBuildings() {
-  return prisma.building.findMany({
-    where: { deletedAt: null },
-    include: { _count: { select: { rooms: true } } },
-    orderBy: { name: "asc" },
-  });
-}
+  AUDIT_LOG_VIEW: "audit_log.view",
 
-export async function createBuilding(
-  input: { name: string; code: string; address?: string },
-  actorUserId: string | null
-) {
-  const building = await prisma.building.create({ data: input });
-  await recordAuditLog({
-    userId: actorUserId,
-    action: "building.create",
-    entityType: "Building",
-    entityId: building.id,
-    newValue: input,
-  });
-  return building;
-}
+  SETTINGS_MANAGE: "settings.manage",
 
-// ===================== ROOMS =====================
+  ASSET_VIEW: "asset.view",
+  ASSET_CREATE: "asset.create",
+  ASSET_EDIT: "asset.edit",
+  ASSET_DELETE: "asset.delete",
+  ASSET_IMPORT_EXPORT: "asset.import_export",
 
-export async function listRooms(filters?: { buildingId?: string; departmentId?: string }) {
-  return prisma.room.findMany({
-    where: {
-      deletedAt: null,
-      buildingId: filters?.buildingId || undefined,
-      departmentId: filters?.departmentId || undefined,
-    },
-    include: {
-      building: true,
-      department: true,
-      pics: { where: { isActive: true }, include: { user: true } },
-      _count: { select: { assets: { where: { deletedAt: null } } } },
-    },
-    orderBy: { name: "asc" },
-  });
-}
+  CATEGORY_MANAGE: "category.manage",
+  MODEL_MANAGE: "model.manage",
+  VENDOR_MANAGE: "vendor.manage",
 
-export async function getRoomById(id: string) {
-  return prisma.room.findFirst({
-    where: { id, deletedAt: null },
-    include: {
-      building: true,
-      department: true,
-      pics: { where: { isActive: true }, include: { user: true }, orderBy: { picType: "asc" } },
-      assets: {
-        where: { deletedAt: null },
-        include: { category: true },
-        orderBy: { name: "asc" },
-      },
-    },
-  });
-}
+  // Phase 3
+  ROOM_VIEW: "room.view",
+  ROOM_MANAGE: "room.manage",           // create/edit/delete buildings & rooms
+  ROOM_PIC_MANAGE: "room_pic.manage",   // assign/unassign primary & backup PICs
+} as const;
 
-export interface CreateRoomInput {
-  roomCode: string;
-  name: string;
-  buildingId: string;
-  floor?: string;
-  departmentId?: string;
-  roomType?: string;
-  capacity?: number;
-  description?: string;
-}
-
-export async function createRoom(input: CreateRoomInput, actorUserId: string | null) {
-  const room = await prisma.room.create({
-    data: {
-      roomCode: input.roomCode,
-      name: input.name,
-      buildingId: input.buildingId,
-      floor: input.floor,
-      departmentId: input.departmentId,
-      roomType: (input.roomType as never) || undefined,
-      capacity: input.capacity,
-      description: input.description,
-    },
-  });
-
-  await recordAuditLog({
-    userId: actorUserId,
-    action: "room.create",
-    entityType: "Room",
-    entityId: room.id,
-    newValue: input,
-  });
-
-  return room;
-}
-
-export interface UpdateRoomInput {
-  name?: string;
-  floor?: string;
-  departmentId?: string | null;
-  roomType?: string;
-  capacity?: number | null;
-  description?: string;
-  status?: string;
-}
-
-export async function updateRoom(id: string, input: UpdateRoomInput, actorUserId: string | null) {
-  const before = await prisma.room.findUniqueOrThrow({ where: { id } });
-
-  const room = await prisma.room.update({
-    where: { id },
-    data: {
-      name: input.name,
-      floor: input.floor,
-      departmentId: input.departmentId,
-      roomType: (input.roomType as never) || undefined,
-      capacity: input.capacity,
-      description: input.description,
-      status: (input.status as never) || undefined,
-    },
-  });
-
-  await recordAuditLog({
-    userId: actorUserId,
-    action: "room.update",
-    entityType: "Room",
-    entityId: id,
-    oldValue: { name: before.name, status: before.status },
-    newValue: { name: room.name, status: room.status },
-  });
-
-  return room;
-}
-
-// ===================== ROOM PIC =====================
+export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 /**
- * Assigns a user as Primary or Backup PIC for a room.
- *
- * Business rule: a room can have only ONE active Primary PIC at a time
- * (multiple active Backups are allowed). Assigning a new Primary
- * automatically deactivates the previous one — this can't be expressed as
- * a DB constraint in Prisma (no partial unique index support), so it's
- * enforced here, inside a transaction, instead.
- *
- * When the Primary PIC changes, every asset currently in that room has its
- * denormalized `currentPicId` updated to match — this is what keeps
- * Asset.currentPicId in sync without the UI having to know about it.
+ * Default system roles and the permissions they hold at install time.
+ * Admins can adjust role→permission mappings later via /admin/roles (Phase 10+),
+ * this is just the seed baseline described in the roles matrix.
  */
-export async function assignRoomPic(
-  roomId: string,
-  userId: string,
-  picType: "PRIMARY" | "BACKUP",
-  actorUserId: string | null
-) {
-  const result = await prisma.$transaction(async (tx) => {
-    if (picType === "PRIMARY") {
-      // Deactivate any existing active primary PIC for this room.
-      await tx.roomPic.updateMany({
-        where: { roomId, picType: "PRIMARY", isActive: true },
-        data: { isActive: false, unassignedAt: new Date() },
-      });
-    }
-
-    const pic = await tx.roomPic.create({
-      data: { roomId, userId, picType, isActive: true },
-    });
-
-    if (picType === "PRIMARY") {
-      // Keep every asset currently located in this room in sync with its
-      // new accountable person.
-      await tx.asset.updateMany({
-        where: { currentRoomId: roomId, deletedAt: null },
-        data: { currentPicId: userId },
-      });
-    }
-
-    return pic;
-  });
-
-  await recordAuditLog({
-    userId: actorUserId,
-    action: "room_pic.assign",
-    entityType: "Room",
-    entityId: roomId,
-    newValue: { userId, picType },
-  });
-
-  return result;
-}
-
-export async function unassignRoomPic(roomPicId: string, actorUserId: string | null) {
-  const pic = await prisma.roomPic.update({
-    where: { id: roomPicId },
-    data: { isActive: false, unassignedAt: new Date() },
-  });
-
-  if (pic.picType === "PRIMARY") {
-    // Room now has no accountable primary PIC — clear currentPicId on its
-    // assets rather than leaving a stale reference to someone no longer
-    // responsible for them.
-    await prisma.asset.updateMany({
-      where: { currentRoomId: pic.roomId, currentPicId: pic.userId, deletedAt: null },
-      data: { currentPicId: null },
-    });
-  }
-
-  await recordAuditLog({
-    userId: actorUserId,
-    action: "room_pic.unassign",
-    entityType: "Room",
-    entityId: pic.roomId,
-    oldValue: { userId: pic.userId, picType: pic.picType },
-  });
-
-  return pic;
-}
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
+  "Super Admin": Object.values(PERMISSIONS),
+  "Asset Administrator": [
+    PERMISSIONS.USER_VIEW,
+    PERMISSIONS.AUDIT_LOG_VIEW,
+    PERMISSIONS.ASSET_VIEW,
+    PERMISSIONS.ASSET_CREATE,
+    PERMISSIONS.ASSET_EDIT,
+    PERMISSIONS.ASSET_DELETE,
+    PERMISSIONS.ASSET_IMPORT_EXPORT,
+    PERMISSIONS.CATEGORY_MANAGE,
+    PERMISSIONS.MODEL_MANAGE,
+    PERMISSIONS.VENDOR_MANAGE,
+    PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.ROOM_MANAGE,
+    PERMISSIONS.ROOM_PIC_MANAGE,
+  ],
+  "IT Manager": [PERMISSIONS.USER_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  "IT Support": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ASSET_EDIT, PERMISSIONS.ROOM_VIEW],
+  "Room PIC": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  "Department Manager": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  Employee: [],
+};
