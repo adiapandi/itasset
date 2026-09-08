@@ -4,21 +4,43 @@ import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/authz";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getAssetById } from "@/services/asset.service";
+import { getAssignmentHistory } from "@/services/assignment.service";
+import { prisma } from "@/lib/prisma";
 import { StatusBadge, ConditionBadge } from "@/components/shared/Badges";
+import { AssignEmployeeForm } from "./AssignEmployeeForm";
+import { UnassignEmployeeButton } from "./UnassignEmployeeButton";
 
 function formatDate(d: Date | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function formatDateTime(d: Date | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 export default async function AssetDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session, PERMISSIONS.ASSET_VIEW)) {
-    redirect("/dashboard");
-  }
+  const canViewAll = hasPermission(session, PERMISSIONS.ASSET_VIEW);
+  const canViewOwn = hasPermission(session, PERMISSIONS.ASSET_VIEW_OWN);
+  if (!session || (!canViewAll && !canViewOwn)) redirect("/dashboard");
 
   const asset = await getAssetById(params.id);
   if (!asset) notFound();
+
+  // Employees scoped to asset.view_own may only open assets assigned to them.
+  if (!canViewAll && asset.assignedUserId !== (session.user.id as string)) {
+    redirect("/assets");
+  }
+
+  const canAssign = hasPermission(session, PERMISSIONS.ASSET_ASSIGN);
+  const [history, users] = await Promise.all([
+    getAssignmentHistory(asset.id),
+    canAssign
+      ? prisma.user.findMany({ where: { deletedAt: null, isActive: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+  ]);
 
   const fields: [string, string][] = [
     ["Category", asset.category.name],
@@ -63,8 +85,46 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         </div>
       )}
 
+      {/* Employee assignment — deliberately separate from Current room / Accountable PIC above */}
+      <div className="mt-4 rounded-md border border-border bg-surface p-5">
+        <p className="text-sm font-medium text-ink">Assigned employee</p>
+        <p className="mt-1 text-xs text-ink-soft">
+          Who this asset is assigned to for their own use — independent from which room it
+          physically sits in.
+        </p>
+
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-sm text-ink">{asset.assignedUser?.name ?? "— unassigned —"}</span>
+          {canAssign && asset.assignedUser && <UnassignEmployeeButton assetId={asset.id} />}
+        </div>
+
+        {canAssign && (
+          <div className="mt-4 border-t border-border pt-4">
+            <AssignEmployeeForm assetId={asset.id} users={users} />
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+              Assignment history
+            </p>
+            <ul className="mt-2 space-y-2">
+              {history.map((h) => (
+                <li key={h.id} className="text-xs text-ink-soft">
+                  <span className="text-ink">{h.user?.name ?? "—"}</span>
+                  {" · "}
+                  {formatDateTime(h.startedAt)} → {h.endedAt ? formatDateTime(h.endedAt) : "present"}
+                  {h.reason ? ` · ${h.reason}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       <p className="mt-4 text-xs text-ink-soft">
-        Assignment to an employee, movement history, and QR labels arrive in Phase 4–6.
+        Room movement history and QR labels arrive in Phase 5–6.
       </p>
     </div>
   );
