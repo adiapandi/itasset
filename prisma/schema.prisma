@@ -1,8 +1,9 @@
-// iAsset — schema through Phase 3
+// iAsset — schema through Phase 4
 // Phase 1: Identity & Access (users/roles/permissions) + audit trail.
 // Phase 2: Asset Catalog (vendors/categories/models/assets).
 // Phase 3: Locations (buildings/rooms/room PICs) + Asset.currentRoomId/currentPicId.
-// Transfers and employee assignment land in Phase 4/5.
+// Phase 4: Employee assignment (Asset.assignedUserId) + AssetAssignment history log.
+// Transfer + approval workflow (room movement history) lands in Phase 5.
 // (the full target schema is sketched in the architecture doc / ERD).
 
 generator client {
@@ -51,6 +52,8 @@ model User {
   auditLogs     AuditLog[]
   roomPics      RoomPic[]
   assetsInCharge Asset[]     @relation("AssetCurrentPic")
+  assetsAssigned Asset[]     @relation("AssetAssignedUser")
+  assetAssignments AssetAssignment[] @relation("AssetAssignmentUser")
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -240,6 +243,15 @@ model Asset {
   currentPic        User?           @relation("AssetCurrentPic", fields: [currentPicId], references: [id])
   currentPicId      String?
 
+  // Phase 4: employee assignment — deliberately separate from currentRoomId/
+  // currentPicId. A laptop can be assignedUserId=Jane while currentRoomId
+  // points at the IT Office; a server can have currentRoomId set with
+  // assignedUserId left null. See AssetAssignment for the history log.
+  assignedUser      User?           @relation("AssetAssignedUser", fields: [assignedUserId], references: [id])
+  assignedUserId    String?
+
+  assignments       AssetAssignment[]
+
   createdBy         String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -248,7 +260,38 @@ model Asset {
   @@index([status])
   @@index([categoryId])
   @@index([currentRoomId])
+  @@index([assignedUserId])
   @@map("assets")
+}
+
+enum AssignmentType {
+  EMPLOYEE
+  ROOM
+  DEPARTMENT
+  STORAGE
+}
+
+// Immutable log of "who/where was accountable for this asset, and when" —
+// never updated in place, only closed (endedAt set) and superseded by a new
+// row. Phase 4 only writes EMPLOYEE rows; ROOM movement gets its own
+// approval-backed log (asset_transfers) in Phase 5 rather than reusing this
+// table, per the architecture doc's split between assignment and transfer.
+model AssetAssignment {
+  id             String         @id @default(cuid())
+  asset          Asset          @relation(fields: [assetId], references: [id])
+  assetId        String
+
+  assignmentType AssignmentType
+  user           User?          @relation("AssetAssignmentUser", fields: [userId], references: [id])
+  userId         String?
+
+  startedAt      DateTime       @default(now())
+  endedAt        DateTime?
+  reason         String?
+  createdBy      String?
+
+  @@index([assetId, endedAt])
+  @@map("asset_assignments")
 }
 
 // ===================== LOCATIONS (Phase 3) =====================
