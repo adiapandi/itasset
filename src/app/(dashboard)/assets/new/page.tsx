@@ -12,10 +12,11 @@ export default async function NewAssetPage() {
     redirect("/assets");
   }
 
-  const [categories, vendors, departments] = await Promise.all([
+  const [categories, vendors, departments, rooms] = await Promise.all([
     prisma.assetCategory.findMany({ orderBy: { name: "asc" } }),
     prisma.vendor.findMany({ orderBy: { name: "asc" } }),
     prisma.department.findMany({ orderBy: { name: "asc" } }),
+    prisma.room.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -26,7 +27,7 @@ export default async function NewAssetPage() {
       </p>
 
       <div className="mt-6">
-        <NewAssetForm categories={categories} vendors={vendors} departments={departments} />
+        <NewAssetForm categories={categories} vendors={vendors} departments={departments} rooms={rooms} />
       </div>
     </div>
   );
