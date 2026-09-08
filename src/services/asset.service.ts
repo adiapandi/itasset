@@ -9,6 +9,7 @@ export interface AssetFilters {
   categoryId?: string;
   departmentId?: string;
   condition?: AssetCondition;
+  assignedUserId?: string; // used to scope the list for the Employee "view own" role
   page?: number;
   pageSize?: number;
 }
@@ -44,6 +45,7 @@ export async function listAssets(filters: AssetFilters) {
     ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
     ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
     ...(filters.condition ? { condition: filters.condition } : {}),
+    ...(filters.assignedUserId ? { assignedUserId: filters.assignedUserId } : {}),
     ...(filters.search
       ? {
           OR: [
@@ -58,7 +60,7 @@ export async function listAssets(filters: AssetFilters) {
   const [items, total] = await Promise.all([
     prisma.asset.findMany({
       where,
-      include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
+      include: { category: true, model: true, vendor: true, department: true, currentRoom: true, assignedUser: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -79,6 +81,7 @@ export async function getAssetById(id: string) {
       department: true,
       currentRoom: { include: { building: true } },
       currentPic: true,
+      assignedUser: true,
     },
   });
 }
@@ -254,7 +257,7 @@ export async function importAssets(rows: AssetImportRow[], actorUserId: string |
 export async function exportAssetsFlat() {
   const assets = await prisma.asset.findMany({
     where: { deletedAt: null },
-    include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
+    include: { category: true, model: true, vendor: true, department: true, currentRoom: true, assignedUser: true },
     orderBy: { assetCode: "asc" },
   });
 
@@ -268,6 +271,7 @@ export async function exportAssetsFlat() {
     Vendor: a.vendor?.name ?? "",
     Department: a.department?.name ?? "",
     Room: a.currentRoom?.name ?? "",
+    "Assigned To": a.assignedUser?.name ?? "",
     Status: a.status,
     Condition: a.condition,
     "Purchase Date": a.purchaseDate?.toISOString().slice(0, 10) ?? "",
