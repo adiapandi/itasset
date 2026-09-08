@@ -28,8 +28,8 @@ const SECTIONS: NavSection[] = [
   {
     title: "Locations",
     items: [
-      { label: "Rooms", href: "/locations/rooms", enabled: false },
-      { label: "Room PIC", href: "/locations/room-pics", enabled: false },
+      { label: "Rooms", href: "/locations/rooms", enabled: true },
+      { label: "Buildings", href: "/locations/buildings", enabled: true },
     ],
   },
   {
