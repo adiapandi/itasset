@@ -65,6 +65,7 @@ export default async function AssetsPage({
               <th className="px-4 py-2 font-medium">Name</th>
               <th className="px-4 py-2 font-medium">Category</th>
               <th className="px-4 py-2 font-medium">Serial No.</th>
+              <th className="px-4 py-2 font-medium">Room</th>
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium">Condition</th>
             </tr>
@@ -80,6 +81,7 @@ export default async function AssetsPage({
                 <td className="px-4 py-2 text-ink">{a.name}</td>
                 <td className="px-4 py-2 text-ink-soft">{a.category.name}</td>
                 <td className="px-4 py-2 font-mono text-xs text-ink-soft">{a.serialNumber ?? "—"}</td>
+                <td className="px-4 py-2 text-ink-soft">{a.currentRoom?.name ?? "—"}</td>
                 <td className="px-4 py-2">
                   <StatusBadge status={a.status} />
                 </td>
@@ -90,7 +92,7 @@ export default async function AssetsPage({
             ))}
             {result.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-ink-soft">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-ink-soft">
                   No assets match these filters.
                 </td>
               </tr>
