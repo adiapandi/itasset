@@ -1,7 +1,8 @@
-// iAsset — schema through Phase 2
+// iAsset — schema through Phase 3
 // Phase 1: Identity & Access (users/roles/permissions) + audit trail.
 // Phase 2: Asset Catalog (vendors/categories/models/assets).
-// Rooms, transfers, and assignment land in Phase 3/4/5.
+// Phase 3: Locations (buildings/rooms/room PICs) + Asset.currentRoomId/currentPicId.
+// Transfers and employee assignment land in Phase 4/5.
 // (the full target schema is sketched in the architecture doc / ERD).
 
 generator client {
@@ -24,6 +25,7 @@ model Department {
   managerId       String?
   users           User[]       @relation("UserDepartment")
   assets          Asset[]
+  rooms           Room[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -47,6 +49,8 @@ model User {
 
   roles         UserRole[]
   auditLogs     AuditLog[]
+  roomPics      RoomPic[]
+  assetsInCharge Asset[]     @relation("AssetCurrentPic")
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -228,7 +232,13 @@ model Asset {
   photoUrl          String?
   notes             String?
 
-  // Phase 3/4 will add current_room_id / current_pic_id / assigned_user_id here.
+  currentRoom       Room?           @relation(fields: [currentRoomId], references: [id])
+  currentRoomId     String?
+  // Denormalized "who's accountable right now" — kept in sync with the room's
+  // primary RoomPic by the room/asset services whenever a PIC or room changes.
+  // Phase 4/5 will layer employee assignment (assignedUserId) on top of this.
+  currentPic        User?           @relation("AssetCurrentPic", fields: [currentPicId], references: [id])
+  currentPicId      String?
 
   createdBy         String?
   createdAt         DateTime        @default(now())
@@ -237,5 +247,93 @@ model Asset {
 
   @@index([status])
   @@index([categoryId])
+  @@index([currentRoomId])
   @@map("assets")
+}
+
+// ===================== LOCATIONS (Phase 3) =====================
+
+model Building {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  address   String?
+
+  rooms     Room[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@map("buildings")
+}
+
+enum RoomType {
+  OFFICE
+  MEETING_ROOM
+  SERVER_ROOM
+  WAREHOUSE
+  STORAGE_ROOM
+  RECEPTION
+  TRAINING_ROOM
+  OTHER
+}
+
+enum RoomStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Room {
+  id           String     @id @default(cuid())
+  roomCode     String     @unique
+  name         String
+
+  building     Building   @relation(fields: [buildingId], references: [id])
+  buildingId   String
+  floor        String?
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+
+  roomType     RoomType   @default(OFFICE)
+  capacity     Int?
+  description  String?
+  status       RoomStatus @default(ACTIVE)
+
+  pics         RoomPic[]
+  assets       Asset[]
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  @@index([buildingId])
+  @@map("rooms")
+}
+
+enum PicType {
+  PRIMARY
+  BACKUP
+}
+
+model RoomPic {
+  id           String    @id @default(cuid())
+
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId       String
+  user         User      @relation(fields: [userId], references: [id])
+  userId       String
+
+  picType      PicType
+  isActive     Boolean   @default(true)
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+
+  // A room can have at most one ACTIVE primary PIC at a time (backups are
+  // unlimited) — enforced in the service layer since Prisma can't express
+  // a partial unique index directly; see room.service.ts assignPic().
+
+  @@index([roomId, isActive])
+  @@map("room_pics")
 }
