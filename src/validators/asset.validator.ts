@@ -27,6 +27,7 @@ export const createAssetSchema = z.object({
   warrantyStartDate: z.string().optional(),
   warrantyEndDate: z.string().optional(),
   condition: assetConditionEnum.optional(),
+  currentRoomId: z.string().optional(),
   notes: z.string().optional(),
 });
 
