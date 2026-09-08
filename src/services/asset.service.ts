@@ -26,6 +26,7 @@ export interface CreateAssetInput {
   warrantyStartDate?: string;
   warrantyEndDate?: string;
   condition?: AssetCondition;
+  currentRoomId?: string;
   notes?: string;
 }
 
@@ -57,7 +58,7 @@ export async function listAssets(filters: AssetFilters) {
   const [items, total] = await Promise.all([
     prisma.asset.findMany({
       where,
-      include: { category: true, model: true, vendor: true, department: true },
+      include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -71,13 +72,35 @@ export async function listAssets(filters: AssetFilters) {
 export async function getAssetById(id: string) {
   return prisma.asset.findFirst({
     where: { id, deletedAt: null },
-    include: { category: true, model: true, vendor: true, department: true },
+    include: {
+      category: true,
+      model: true,
+      vendor: true,
+      department: true,
+      currentRoom: { include: { building: true } },
+      currentPic: true,
+    },
   });
+}
+
+/**
+ * Resolves the active Primary RoomPic for a room, if any — this is what
+ * Asset.currentPicId gets set to whenever an asset's currentRoomId changes,
+ * keeping "who's accountable" in sync with "where it physically is" without
+ * the caller having to know about RoomPic at all.
+ */
+async function resolvePrimaryPicUserId(roomId: string | undefined): Promise<string | null> {
+  if (!roomId) return null;
+  const primary = await prisma.roomPic.findFirst({
+    where: { roomId, picType: "PRIMARY", isActive: true },
+  });
+  return primary?.userId ?? null;
 }
 
 export async function createAsset(input: CreateAssetInput, actorUserId: string | null) {
   const category = await prisma.assetCategory.findUniqueOrThrow({ where: { id: input.categoryId } });
   const assetCode = await generateAssetCode(category.code);
+  const currentPicId = await resolvePrimaryPicUserId(input.currentRoomId);
 
   const asset = await prisma.asset.create({
     data: {
@@ -94,11 +117,13 @@ export async function createAsset(input: CreateAssetInput, actorUserId: string |
       warrantyStartDate: input.warrantyStartDate ? new Date(input.warrantyStartDate) : undefined,
       warrantyEndDate: input.warrantyEndDate ? new Date(input.warrantyEndDate) : undefined,
       condition: input.condition ?? "GOOD",
+      currentRoomId: input.currentRoomId,
+      currentPicId,
       notes: input.notes,
       createdBy: actorUserId ?? undefined,
       qrCodeValue: assetCode, // QR payload = asset code for Phase 2; Phase 6 adds real QR image generation
     },
-    include: { category: true, model: true, vendor: true, department: true },
+    include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
   });
 
   await recordAuditLog({
@@ -106,7 +131,7 @@ export async function createAsset(input: CreateAssetInput, actorUserId: string |
     action: "asset.create",
     entityType: "Asset",
     entityId: asset.id,
-    newValue: { assetCode: asset.assetCode, name: asset.name, status: asset.status },
+    newValue: { assetCode: asset.assetCode, name: asset.name, status: asset.status, currentRoomId: asset.currentRoomId },
   });
 
   return asset;
@@ -114,6 +139,11 @@ export async function createAsset(input: CreateAssetInput, actorUserId: string |
 
 export async function updateAsset(id: string, input: UpdateAssetInput, actorUserId: string | null) {
   const before = await prisma.asset.findUniqueOrThrow({ where: { id } });
+
+  // Only re-resolve the accountable PIC if the room is actually changing —
+  // avoids an extra query on every unrelated field edit.
+  const roomChanged = input.currentRoomId !== undefined && input.currentRoomId !== before.currentRoomId;
+  const currentPicId = roomChanged ? await resolvePrimaryPicUserId(input.currentRoomId) : undefined;
 
   const asset = await prisma.asset.update({
     where: { id },
@@ -131,9 +161,11 @@ export async function updateAsset(id: string, input: UpdateAssetInput, actorUser
       warrantyEndDate: input.warrantyEndDate ? new Date(input.warrantyEndDate) : undefined,
       condition: input.condition,
       status: input.status,
+      currentRoomId: input.currentRoomId,
+      currentPicId,
       notes: input.notes,
     },
-    include: { category: true, model: true, vendor: true, department: true },
+    include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
   });
 
   await recordAuditLog({
@@ -141,8 +173,8 @@ export async function updateAsset(id: string, input: UpdateAssetInput, actorUser
     action: "asset.update",
     entityType: "Asset",
     entityId: id,
-    oldValue: { name: before.name, status: before.status, condition: before.condition },
-    newValue: { name: asset.name, status: asset.status, condition: asset.condition },
+    oldValue: { name: before.name, status: before.status, condition: before.condition, currentRoomId: before.currentRoomId },
+    newValue: { name: asset.name, status: asset.status, condition: asset.condition, currentRoomId: asset.currentRoomId },
   });
 
   return asset;
@@ -222,7 +254,7 @@ export async function importAssets(rows: AssetImportRow[], actorUserId: string |
 export async function exportAssetsFlat() {
   const assets = await prisma.asset.findMany({
     where: { deletedAt: null },
-    include: { category: true, model: true, vendor: true, department: true },
+    include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
     orderBy: { assetCode: "asc" },
   });
 
@@ -235,6 +267,7 @@ export async function exportAssetsFlat() {
     "Serial Number": a.serialNumber ?? "",
     Vendor: a.vendor?.name ?? "",
     Department: a.department?.name ?? "",
+    Room: a.currentRoom?.name ?? "",
     Status: a.status,
     Condition: a.condition,
     "Purchase Date": a.purchaseDate?.toISOString().slice(0, 10) ?? "",
