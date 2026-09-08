@@ -1,6 +1,6 @@
 /**
  * Central registry of permission codes.
- * Later phases add more (asset.*, room.*, transfer.*, maintenance.*, audit.*, report.*)
+ * Later phases add more (transfer.*, maintenance.*, audit.*, report.*)
  * but the pattern (module.action) and the way they're checked stays the same.
  */
 export const PERMISSIONS = {
@@ -25,6 +25,11 @@ export const PERMISSIONS = {
   CATEGORY_MANAGE: "category.manage",
   MODEL_MANAGE: "model.manage",
   VENDOR_MANAGE: "vendor.manage",
+
+  // Phase 3
+  ROOM_VIEW: "room.view",
+  ROOM_MANAGE: "room.manage",           // create/edit/delete buildings & rooms
+  ROOM_PIC_MANAGE: "room_pic.manage",   // assign/unassign primary & backup PICs
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -47,11 +52,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.CATEGORY_MANAGE,
     PERMISSIONS.MODEL_MANAGE,
     PERMISSIONS.VENDOR_MANAGE,
+    PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.ROOM_MANAGE,
+    PERMISSIONS.ROOM_PIC_MANAGE,
   ],
-  "IT Manager": [PERMISSIONS.USER_VIEW, PERMISSIONS.ASSET_VIEW],
-  "IT Support": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ASSET_EDIT],
-  "Room PIC": [PERMISSIONS.ASSET_VIEW],
-  "Department Manager": [PERMISSIONS.ASSET_VIEW],
-  Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW],
+  "IT Manager": [PERMISSIONS.USER_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  "IT Support": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ASSET_EDIT, PERMISSIONS.ROOM_VIEW],
+  "Room PIC": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  "Department Manager": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
   Employee: [],
 };
