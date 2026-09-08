@@ -65,9 +65,9 @@ async function main() {
   const passwordHash = await bcrypt.hash(adminPassword, 10);
   const superAdminRole = await prisma.role.findUniqueOrThrow({ where: { name: "Super Admin" } });
 
-  const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
-  if (!existing) {
-    await prisma.user.create({
+  let adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
       data: {
         name: "System Administrator",
         email: adminEmail,
@@ -79,6 +79,48 @@ async function main() {
     console.log(`Created Super Admin: ${adminEmail} / ${adminPassword} — change this password after first login.`);
   } else {
     console.log("Super Admin already exists, skipping.");
+  }
+
+  console.log("Seeding sample building & rooms...");
+  const hqBuilding = await prisma.building.upsert({
+    where: { code: "HQ" },
+    update: {},
+    create: { name: "HQ Tower", code: "HQ" },
+  });
+
+  const serverRoom = await prisma.room.upsert({
+    where: { roomCode: "SRV-01" },
+    update: {},
+    create: {
+      roomCode: "SRV-01",
+      name: "IT Server Room",
+      buildingId: hqBuilding.id,
+      floor: "1",
+      departmentId: itDept.id,
+      roomType: "SERVER_ROOM",
+    },
+  });
+
+  await prisma.room.upsert({
+    where: { roomCode: "OFC-IT" },
+    update: {},
+    create: {
+      roomCode: "OFC-IT",
+      name: "IT Office",
+      buildingId: hqBuilding.id,
+      floor: "2",
+      departmentId: itDept.id,
+      roomType: "OFFICE",
+    },
+  });
+
+  const existingPrimaryPic = await prisma.roomPic.findFirst({
+    where: { roomId: serverRoom.id, picType: "PRIMARY", isActive: true },
+  });
+  if (!existingPrimaryPic) {
+    await prisma.roomPic.create({
+      data: { roomId: serverRoom.id, userId: adminUser.id, picType: "PRIMARY", isActive: true },
+    });
   }
 
   console.log("Seed complete.");
