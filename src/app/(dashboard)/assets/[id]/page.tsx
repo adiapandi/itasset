@@ -27,6 +27,8 @@ export default async function AssetDetailPage({ params }: { params: { id: string
     ["Serial number", asset.serialNumber ?? "—"],
     ["Vendor", asset.vendor?.name ?? "—"],
     ["Department", asset.department?.name ?? "—"],
+    ["Current room", asset.currentRoom ? `${asset.currentRoom.name} (${asset.currentRoom.building.name})` : "— unassigned —"],
+    ["Accountable PIC", asset.currentPic?.name ?? "— none —"],
     ["Purchase date", formatDate(asset.purchaseDate)],
     ["Purchase price", asset.purchasePrice ? `Rp ${asset.purchasePrice.toString()}` : "—"],
     ["Warranty end", formatDate(asset.warrantyEndDate)],
@@ -62,7 +64,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       )}
 
       <p className="mt-4 text-xs text-ink-soft">
-        Location, assignment, movement history, and QR labels arrive in Phase 3–6.
+        Assignment to an employee, movement history, and QR labels arrive in Phase 4–6.
       </p>
     </div>
   );
