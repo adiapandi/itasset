@@ -16,9 +16,17 @@ export default async function AssetsPage({
   searchParams: { search?: string; status?: string; categoryId?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session, PERMISSIONS.ASSET_VIEW)) {
+  const canViewAll = hasPermission(session, PERMISSIONS.ASSET_VIEW);
+  const canViewOwn = hasPermission(session, PERMISSIONS.ASSET_VIEW_OWN);
+
+  if (!session || (!canViewAll && !canViewOwn)) {
     redirect("/dashboard");
   }
+
+  // Employees without full asset.view only ever see what's assigned to them —
+  // this filter is forced server-side, not left to the UI, so it can't be
+  // bypassed by editing query params.
+  const scopedToSelf = !canViewAll && canViewOwn;
 
   const [result, categories] = await Promise.all([
     listAssets({
@@ -26,6 +34,7 @@ export default async function AssetsPage({
       status: searchParams.status as never,
       categoryId: searchParams.categoryId,
       page: searchParams.page ? Number(searchParams.page) : undefined,
+      assignedUserId: scopedToSelf ? (session.user.id as string) : undefined,
     }),
     prisma.assetCategory.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -37,8 +46,12 @@ export default async function AssetsPage({
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Assets</h1>
-          <p className="mt-1 text-sm text-ink-soft">{result.total} asset(s) total.</p>
+          <h1 className="text-xl font-semibold text-ink">{scopedToSelf ? "My Assets" : "Assets"}</h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            {scopedToSelf
+              ? `${result.total} asset(s) assigned to you.`
+              : `${result.total} asset(s) total.`}
+          </p>
         </div>
         <div className="flex gap-2">
           {canImportExport && <ImportExportBar />}
@@ -53,9 +66,11 @@ export default async function AssetsPage({
         </div>
       </div>
 
-      <div className="mt-4">
-        <AssetFiltersBar categories={categories} />
-      </div>
+      {!scopedToSelf && (
+        <div className="mt-4">
+          <AssetFiltersBar categories={categories} />
+        </div>
+      )}
 
       <div className="mt-4 overflow-hidden rounded-md border border-border bg-surface">
         <table className="w-full text-left text-sm">
@@ -66,6 +81,7 @@ export default async function AssetsPage({
               <th className="px-4 py-2 font-medium">Category</th>
               <th className="px-4 py-2 font-medium">Serial No.</th>
               <th className="px-4 py-2 font-medium">Room</th>
+              {!scopedToSelf && <th className="px-4 py-2 font-medium">Assigned to</th>}
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium">Condition</th>
             </tr>
@@ -82,6 +98,9 @@ export default async function AssetsPage({
                 <td className="px-4 py-2 text-ink-soft">{a.category.name}</td>
                 <td className="px-4 py-2 font-mono text-xs text-ink-soft">{a.serialNumber ?? "—"}</td>
                 <td className="px-4 py-2 text-ink-soft">{a.currentRoom?.name ?? "—"}</td>
+                {!scopedToSelf && (
+                  <td className="px-4 py-2 text-ink-soft">{a.assignedUser?.name ?? "—"}</td>
+                )}
                 <td className="px-4 py-2">
                   <StatusBadge status={a.status} />
                 </td>
@@ -92,8 +111,8 @@ export default async function AssetsPage({
             ))}
             {result.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-ink-soft">
-                  No assets match these filters.
+                <td colSpan={scopedToSelf ? 7 : 8} className="px-4 py-8 text-center text-sm text-ink-soft">
+                  {scopedToSelf ? "No assets are currently assigned to you." : "No assets match these filters."}
                 </td>
               </tr>
             )}
