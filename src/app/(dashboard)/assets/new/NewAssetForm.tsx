@@ -12,10 +12,12 @@ export function NewAssetForm({
   categories,
   vendors,
   departments,
+  rooms,
 }: {
   categories: Option[];
   vendors: Option[];
   departments: Option[];
+  rooms: Option[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -27,6 +29,7 @@ export function NewAssetForm({
     serialNumber: "",
     vendorId: "",
     departmentId: "",
+    currentRoomId: "",
     purchaseDate: "",
     purchasePrice: "",
     warrantyEndDate: "",
@@ -50,6 +53,7 @@ export function NewAssetForm({
         ...form,
         vendorId: form.vendorId || undefined,
         departmentId: form.departmentId || undefined,
+        currentRoomId: form.currentRoomId || undefined,
         purchaseDate: form.purchaseDate || undefined,
         warrantyEndDate: form.warrantyEndDate || undefined,
         purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
@@ -162,6 +166,25 @@ export function NewAssetForm({
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-ink mb-1">Current room</label>
+          <select
+            value={form.currentRoomId}
+            onChange={(e) => set("currentRoomId", e.target.value)}
+            className="w-full rounded border border-border px-3 py-2 text-sm"
+          >
+            <option value="">— None —</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-ink-soft">
+            The room&apos;s Primary PIC automatically becomes accountable for this asset.
+          </p>
         </div>
 
         <div>
