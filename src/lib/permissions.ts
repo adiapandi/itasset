@@ -16,11 +16,13 @@ export const PERMISSIONS = {
 
   SETTINGS_MANAGE: "settings.manage",
 
-  ASSET_VIEW: "asset.view",
+  ASSET_VIEW: "asset.view",           // full visibility across all assets
+  ASSET_VIEW_OWN: "asset.view_own",   // only assets assigned to the current user
   ASSET_CREATE: "asset.create",
   ASSET_EDIT: "asset.edit",
   ASSET_DELETE: "asset.delete",
   ASSET_IMPORT_EXPORT: "asset.import_export",
+  ASSET_ASSIGN: "asset.assign",       // assign/unassign an asset to/from an employee
 
   CATEGORY_MANAGE: "category.manage",
   MODEL_MANAGE: "model.manage",
@@ -49,6 +51,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.ASSET_EDIT,
     PERMISSIONS.ASSET_DELETE,
     PERMISSIONS.ASSET_IMPORT_EXPORT,
+    PERMISSIONS.ASSET_ASSIGN,
     PERMISSIONS.CATEGORY_MANAGE,
     PERMISSIONS.MODEL_MANAGE,
     PERMISSIONS.VENDOR_MANAGE,
@@ -56,10 +59,20 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.ROOM_MANAGE,
     PERMISSIONS.ROOM_PIC_MANAGE,
   ],
-  "IT Manager": [PERMISSIONS.USER_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
-  "IT Support": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ASSET_EDIT, PERMISSIONS.ROOM_VIEW],
+  "IT Manager": [
+    PERMISSIONS.USER_VIEW,
+    PERMISSIONS.ASSET_VIEW,
+    PERMISSIONS.ASSET_ASSIGN,
+    PERMISSIONS.ROOM_VIEW,
+  ],
+  "IT Support": [
+    PERMISSIONS.ASSET_VIEW,
+    PERMISSIONS.ASSET_EDIT,
+    PERMISSIONS.ASSET_ASSIGN,
+    PERMISSIONS.ROOM_VIEW,
+  ],
   "Room PIC": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
   "Department Manager": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
   Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
-  Employee: [],
+  Employee: [PERMISSIONS.ASSET_VIEW_OWN],
 };
