@@ -23,7 +23,16 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        // TEMPORARY DEBUG LOGGING — remove once login is confirmed working.
+        console.log("[authorize] raw credentials received:", {
+          email: JSON.stringify(credentials?.email),
+          password: JSON.stringify(credentials?.password),
+        });
+
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[authorize] missing email or password field");
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() },
@@ -36,9 +45,13 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        if (!user || !user.isActive || user.deletedAt) return null;
+        if (!user || !user.isActive || user.deletedAt) {
+          console.log("[authorize] user lookup failed or inactive:", { found: !!user });
+          return null;
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+        console.log("[authorize] bcrypt.compare result:", valid);
         if (!valid) return null;
 
         const roles = user.roles.map((ur) => ur.role.name);
