@@ -1,6 +1,6 @@
 /**
  * Central registry of permission codes.
- * Later phases add more (transfer.*, maintenance.*, audit.*, report.*)
+ * Later phases add more (maintenance.*, audit.*, report.*)
  * but the pattern (module.action) and the way they're checked stays the same.
  */
 export const PERMISSIONS = {
@@ -32,6 +32,13 @@ export const PERMISSIONS = {
   ROOM_VIEW: "room.view",
   ROOM_MANAGE: "room.manage",           // create/edit/delete buildings & rooms
   ROOM_PIC_MANAGE: "room_pic.manage",   // assign/unassign primary & backup PICs
+
+  // Phase 5
+  TRANSFER_CREATE: "transfer.create",   // request a room-to-room transfer
+  TRANSFER_VIEW: "transfer.view",       // see all transfers, not just your own requests
+  TRANSFER_APPROVE: "transfer.approve", // act on a step you're eligible for (still checked per-step)
+  TRANSFER_RECEIVE: "transfer.receive", // confirm receipt as the destination room's PIC
+  TRANSFER_MANAGE: "transfer.manage",   // cancel any transfer, override-approve any step, edit workflow rules
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -58,21 +65,43 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.ROOM_VIEW,
     PERMISSIONS.ROOM_MANAGE,
     PERMISSIONS.ROOM_PIC_MANAGE,
+    PERMISSIONS.TRANSFER_CREATE,
+    PERMISSIONS.TRANSFER_VIEW,
+    PERMISSIONS.TRANSFER_APPROVE,
+    PERMISSIONS.TRANSFER_RECEIVE,
+    PERMISSIONS.TRANSFER_MANAGE,
   ],
   "IT Manager": [
     PERMISSIONS.USER_VIEW,
     PERMISSIONS.ASSET_VIEW,
     PERMISSIONS.ASSET_ASSIGN,
     PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.TRANSFER_CREATE,
+    PERMISSIONS.TRANSFER_VIEW,
+    PERMISSIONS.TRANSFER_APPROVE,
   ],
   "IT Support": [
     PERMISSIONS.ASSET_VIEW,
     PERMISSIONS.ASSET_EDIT,
     PERMISSIONS.ASSET_ASSIGN,
     PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.TRANSFER_CREATE,
+    PERMISSIONS.TRANSFER_VIEW,
   ],
-  "Room PIC": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
-  "Department Manager": [PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
-  Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW],
+  "Room PIC": [
+    PERMISSIONS.ASSET_VIEW,
+    PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.TRANSFER_CREATE,
+    PERMISSIONS.TRANSFER_VIEW,
+    PERMISSIONS.TRANSFER_APPROVE,
+    PERMISSIONS.TRANSFER_RECEIVE,
+  ],
+  "Department Manager": [
+    PERMISSIONS.ASSET_VIEW,
+    PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.TRANSFER_VIEW,
+    PERMISSIONS.TRANSFER_APPROVE,
+  ],
+  Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW, PERMISSIONS.TRANSFER_VIEW],
   Employee: [PERMISSIONS.ASSET_VIEW_OWN],
 };
