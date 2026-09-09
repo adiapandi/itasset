@@ -123,6 +123,49 @@ async function main() {
     });
   }
 
+  console.log("Seeding approval workflow rules...");
+  const itManagerRole = await prisma.role.findUniqueOrThrow({ where: { name: "IT Manager" } });
+  const categoryByCode = new Map(
+    (await prisma.assetCategory.findMany()).map((c) => [c.code, c])
+  );
+
+  // Re-seeded idempotently: clear then recreate, since this is fixture
+  // config data (not user history) and safe to reset on every seed run.
+  async function setCategoryRules(
+    categoryId: string | null,
+    rules: { stepOrder: number; approverType: "ROOM_PIC_SOURCE" | "ROOM_PIC_DEST" | "ROLE"; roleId?: string }[]
+  ) {
+    await prisma.approvalWorkflowRule.deleteMany({ where: { categoryId } });
+    await prisma.approvalWorkflowRule.createMany({
+      data: rules.map((r) => ({ categoryId, ...r })),
+    });
+  }
+
+  // Monitor: source room PIC → destination room PIC (per architecture doc example).
+  await setCategoryRules(categoryByCode.get("MON")!.id, [
+    { stepOrder: 1, approverType: "ROOM_PIC_SOURCE" },
+    { stepOrder: 2, approverType: "ROOM_PIC_DEST" },
+  ]);
+
+  // Laptop: source room PIC → IT Manager → destination room PIC.
+  await setCategoryRules(categoryByCode.get("LPT")!.id, [
+    { stepOrder: 1, approverType: "ROOM_PIC_SOURCE" },
+    { stepOrder: 2, approverType: "ROLE", roleId: itManagerRole.id },
+    { stepOrder: 3, approverType: "ROOM_PIC_DEST" },
+  ]);
+
+  // Server: IT Manager → destination room PIC. (The architecture doc's
+  // example also has a separate "Infrastructure Manager" step — simplified
+  // to IT Manager here since that's the only manager-tier role seeded so
+  // far; add a dedicated role + rule later if you split the responsibility.)
+  await setCategoryRules(categoryByCode.get("SRV")!.id, [
+    { stepOrder: 1, approverType: "ROLE", roleId: itManagerRole.id },
+    { stepOrder: 2, approverType: "ROOM_PIC_DEST" },
+  ]);
+
+  // Fallback for every other category: destination room PIC only.
+  await setCategoryRules(null, [{ stepOrder: 1, approverType: "ROOM_PIC_DEST" }]);
+
   console.log("Seed complete.");
 }
 
