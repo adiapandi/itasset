@@ -7,8 +7,11 @@ import { getAssetById } from "@/services/asset.service";
 import { getAssignmentHistory } from "@/services/assignment.service";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge, ConditionBadge } from "@/components/shared/Badges";
+import { TransferStatusBadge } from "@/components/shared/TransferStatusBadge";
 import { AssignEmployeeForm } from "./AssignEmployeeForm";
 import { UnassignEmployeeButton } from "./UnassignEmployeeButton";
+import { RequestTransferForm } from "./RequestTransferForm";
+import Link from "next/link";
 
 function formatDate(d: Date | null) {
   if (!d) return "—";
@@ -35,11 +38,19 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   }
 
   const canAssign = hasPermission(session, PERMISSIONS.ASSET_ASSIGN);
-  const [history, users] = await Promise.all([
+  const canRequestTransfer = hasPermission(session, PERMISSIONS.TRANSFER_CREATE);
+  const [history, users, rooms, activeTransfer] = await Promise.all([
     getAssignmentHistory(asset.id),
     canAssign
       ? prisma.user.findMany({ where: { deletedAt: null, isActive: true }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
+    canRequestTransfer
+      ? prisma.room.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    prisma.assetTransfer.findFirst({
+      where: { assetId: asset.id, status: { in: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_TRANSIT"] } },
+      orderBy: { requestedAt: "desc" },
+    }),
   ]);
 
   const fields: [string, string][] = [
@@ -123,9 +134,30 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         )}
       </div>
 
-      <p className="mt-4 text-xs text-ink-soft">
-        Room movement history and QR labels arrive in Phase 5–6.
-      </p>
+      {/* Room transfer — the formal, approval-backed way to move an asset
+          between rooms, replacing direct edits to currentRoomId. */}
+      {canRequestTransfer && (
+        <div className="mt-4 rounded-md border border-border bg-surface p-5">
+          <p className="text-sm font-medium text-ink">Room transfer</p>
+
+          {activeTransfer ? (
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-sm text-ink-soft">
+                A transfer request is already in progress for this asset.
+              </p>
+              <Link href={`/transfers/${activeTransfer.id}`} className="flex items-center gap-2 text-sm text-accent hover:underline">
+                View <TransferStatusBadge status={activeTransfer.status} />
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <RequestTransferForm assetId={asset.id} rooms={rooms} currentRoomId={asset.currentRoomId} />
+            </div>
+          )}
+        </div>
+      )}
+
+      <p className="mt-4 text-xs text-ink-soft">QR labels arrive in Phase 6.</p>
     </div>
   );
 }
