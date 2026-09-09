@@ -126,8 +126,8 @@ export default async function RoomDetailPage({ params }: { params: { id: string 
             </div>
             <p className="mt-2 text-xs text-ink-soft">
               New assets can be placed in this room from the &quot;Add asset&quot; form. Moving an
-              existing asset between rooms, and an edit form for assets in general, arrive with
-              the formal transfer workflow in Phase 5.
+              existing asset between rooms now goes through a formal transfer request with
+              approval — start one from the asset&apos;s detail page.
             </p>
           </div>
         </div>
