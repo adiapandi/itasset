@@ -35,8 +35,8 @@ const SECTIONS: NavSection[] = [
   {
     title: "Transfers",
     items: [
-      { label: "Transfer Requests", href: "/transfers", enabled: false },
-      { label: "Pending Approvals", href: "/transfers/approvals", enabled: false },
+      { label: "Transfer Requests", href: "/transfers", enabled: true },
+      { label: "Pending Approvals", href: "/transfers/approvals", enabled: true },
     ],
   },
   { title: "Maintenance", items: [{ label: "Maintenance", href: "/maintenance", enabled: false }] },
