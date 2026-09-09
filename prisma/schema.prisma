@@ -1,9 +1,9 @@
-// iAsset — schema through Phase 4
+// iAsset — schema through Phase 5
 // Phase 1: Identity & Access (users/roles/permissions) + audit trail.
 // Phase 2: Asset Catalog (vendors/categories/models/assets).
 // Phase 3: Locations (buildings/rooms/room PICs) + Asset.currentRoomId/currentPicId.
 // Phase 4: Employee assignment (Asset.assignedUserId) + AssetAssignment history log.
-// Transfer + approval workflow (room movement history) lands in Phase 5.
+// Phase 5: Transfer + configurable approval workflow + room movement history.
 // (the full target schema is sketched in the architecture doc / ERD).
 
 generator client {
@@ -54,6 +54,9 @@ model User {
   assetsInCharge Asset[]     @relation("AssetCurrentPic")
   assetsAssigned Asset[]     @relation("AssetAssignedUser")
   assetAssignments AssetAssignment[] @relation("AssetAssignmentUser")
+  transfersRequested AssetTransfer[] @relation("TransferRequestedBy")
+  transferActions TransferApproval[]
+  specificApprovalRules ApprovalWorkflowRule[] @relation("ApprovalSpecificUser")
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -70,6 +73,7 @@ model Role {
 
   users       UserRole[]
   permissions RolePermission[]
+  approvalRules ApprovalWorkflowRule[]
 
   createdAt   DateTime          @default(now())
 
@@ -157,6 +161,7 @@ model AssetCategory {
 
   models           AssetModel[]
   assets           Asset[]
+  approvalRules    ApprovalWorkflowRule[]
 
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -251,6 +256,7 @@ model Asset {
   assignedUserId    String?
 
   assignments       AssetAssignment[]
+  transfers         AssetTransfer[]
 
   createdBy         String?
   createdAt         DateTime        @default(now())
@@ -346,6 +352,8 @@ model Room {
 
   pics         RoomPic[]
   assets       Asset[]
+  transfersFrom AssetTransfer[] @relation("TransferFromRoom")
+  transfersTo   AssetTransfer[] @relation("TransferToRoom")
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -379,4 +387,100 @@ model RoomPic {
 
   @@index([roomId, isActive])
   @@map("room_pics")
+}
+
+// ===================== TRANSFER + APPROVAL WORKFLOW (Phase 5) =====================
+
+enum ApproverType {
+  ROOM_PIC_SOURCE // primary PIC of the room the asset is currently in
+  ROOM_PIC_DEST   // primary PIC of the destination room
+  ROLE            // anyone holding the given role
+  SPECIFIC_USER   // one named user
+}
+
+// Configurable per category, e.g. Monitor needs only source+dest PIC sign-off,
+// while Server needs IT Manager + dest PIC. categoryId=null rows are the
+// fallback chain used for any category that has no rules of its own.
+// stepOrder is resolved dynamically at approval-time (not snapshotted onto
+// the transfer), so editing rules only affects transfers not yet at that step.
+model ApprovalWorkflowRule {
+  id             String        @id @default(cuid())
+  category       AssetCategory? @relation(fields: [categoryId], references: [id])
+  categoryId     String?
+  stepOrder      Int
+  approverType   ApproverType
+  role           Role?         @relation(fields: [roleId], references: [id])
+  roleId         String?
+  specificUser   User?         @relation("ApprovalSpecificUser", fields: [specificUserId], references: [id])
+  specificUserId String?
+
+  createdAt      DateTime      @default(now())
+
+  @@index([categoryId, stepOrder])
+  @@map("approval_workflow_rules")
+}
+
+enum TransferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IN_TRANSIT
+  RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+// Immutable-in-spirit request record: asset.currentRoomId is only ever
+// touched once, at the RECEIVED→COMPLETED transition — every other status
+// change (approve/reject/cancel) leaves the asset's physical location alone,
+// per the architecture doc's business rules 9 & 10.
+model AssetTransfer {
+  id                   String         @id @default(cuid())
+  asset                Asset          @relation(fields: [assetId], references: [id])
+  assetId              String
+
+  fromRoom             Room?          @relation("TransferFromRoom", fields: [fromRoomId], references: [id])
+  fromRoomId           String?
+  toRoom               Room           @relation("TransferToRoom", fields: [toRoomId], references: [id])
+  toRoomId             String
+
+  requestedBy          User           @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+  requestedById        String
+  reason               String?
+
+  status               TransferStatus @default(PENDING_APPROVAL)
+  currentApprovalStep  Int            @default(1)
+  totalApprovalSteps   Int            @default(1)
+
+  requestedAt          DateTime       @default(now())
+  decidedAt            DateTime?
+  receivedAt           DateTime?
+  completedAt          DateTime?
+  cancelledReason       String?
+
+  approvals            TransferApproval[]
+
+  @@index([assetId, status])
+  @@map("asset_transfers")
+}
+
+enum ApprovalAction {
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+model TransferApproval {
+  id         String         @id @default(cuid())
+  transfer   AssetTransfer  @relation(fields: [transferId], references: [id])
+  transferId String
+  stepOrder  Int
+  approver   User?          @relation(fields: [approverId], references: [id])
+  approverId String?
+  action     ApprovalAction
+  comment    String?
+  actedAt    DateTime       @default(now())
+
+  @@map("transfer_approvals")
 }
