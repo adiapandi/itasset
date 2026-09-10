@@ -10,9 +10,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen">
-      <SidebarNav roles={(session.user as unknown as { roles: string[] }).roles ?? []} />
+      <div className="print:hidden">
+        <SidebarNav roles={(session.user as unknown as { roles: string[] }).roles ?? []} />
+      </div>
       <div className="flex-1 flex flex-col">
-        <TopBar userName={session.user?.name ?? ""} />
+        <div className="print:hidden">
+          <TopBar userName={session.user?.name ?? ""} />
+        </div>
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
