@@ -11,6 +11,7 @@ import { TransferStatusBadge } from "@/components/shared/TransferStatusBadge";
 import { AssignEmployeeForm } from "./AssignEmployeeForm";
 import { UnassignEmployeeButton } from "./UnassignEmployeeButton";
 import { RequestTransferForm } from "./RequestTransferForm";
+import { generateQrDataUrl, buildScanUrl } from "@/lib/qrcode";
 import Link from "next/link";
 
 function formatDate(d: Date | null) {
@@ -39,7 +40,8 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
   const canAssign = hasPermission(session, PERMISSIONS.ASSET_ASSIGN);
   const canRequestTransfer = hasPermission(session, PERMISSIONS.TRANSFER_CREATE);
-  const [history, users, rooms, activeTransfer] = await Promise.all([
+  const scanUrl = buildScanUrl(asset.assetCode);
+  const [history, users, rooms, activeTransfer, qrDataUrl] = await Promise.all([
     getAssignmentHistory(asset.id),
     canAssign
       ? prisma.user.findMany({ where: { deletedAt: null, isActive: true }, orderBy: { name: "asc" } })
@@ -51,6 +53,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       where: { assetId: asset.id, status: { in: ["DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_TRANSIT"] } },
       orderBy: { requestedAt: "desc" },
     }),
+    generateQrDataUrl(scanUrl),
   ]);
 
   const fields: [string, string][] = [
@@ -157,7 +160,25 @@ export default async function AssetDetailPage({ params }: { params: { id: string
         </div>
       )}
 
-      <p className="mt-4 text-xs text-ink-soft">QR labels arrive in Phase 6.</p>
+      {/* QR code — encodes a link to /scan/{assetCode}, which redirects
+          here. Printed on the physical label; scanning it (while logged
+          out) sends the person through login and back to this exact page. */}
+      <div className="mt-4 rounded-md border border-border bg-surface p-5">
+        <p className="text-sm font-medium text-ink">QR code</p>
+        <div className="mt-3 flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrDataUrl} alt={`QR code for ${asset.assetCode}`} className="h-24 w-24 rounded border border-border" />
+          <div>
+            <p className="font-mono text-xs text-ink-soft break-all">{scanUrl}</p>
+            <Link
+              href={`/assets/${asset.id}/print`}
+              className="mt-2 inline-block rounded border border-border px-3 py-1.5 text-sm text-ink hover:bg-surface-sunken"
+            >
+              Print label
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
