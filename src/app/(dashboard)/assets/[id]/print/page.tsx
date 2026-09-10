@@ -9,7 +9,9 @@ import { PrintButton } from "./PrintButton";
 
 function formatMonthYear(d: Date | null) {
   if (!d) return null;
-  return new Date(d).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" }).replace("/", " / ");
+  const date = new Date(d);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${mm} / ${date.getFullYear()}`;
 }
 
 export default async function AssetLabelPrintPage({ params }: { params: { id: string } }) {
@@ -22,23 +24,34 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
   const barcodeDataUrl = await generateBarcodeDataUrl(asset.assetCode);
   const purchaseMonthYear = formatMonthYear(asset.purchaseDate);
 
+  // Each text field uses CSS vertical writing mode instead of a manual
+  // rotate transform — it lets the browser's print engine handle the box
+  // sizing correctly (a hand-rolled `transform: rotate()` on inline text
+  // reserves its ORIGINAL horizontal layout space, which throws off flex
+  // alignment; vertical-rl doesn't have that problem).
+  const verticalTextStyle: React.CSSProperties = {
+    writingMode: "vertical-rl",
+    textOrientation: "mixed",
+    whiteSpace: "nowrap",
+  };
+
   return (
     <div>
       <div className="print:hidden mb-4 flex items-center gap-3">
         <PrintButton />
         <p className="text-xs text-ink-soft">
-          Sized for a 36mm continuous label tape (e.g. Brother P-touch). In the print dialog, set
-          scale to 100% and disable extra margins/headers for the closest fit.
+          Sized for a 36mm continuous label tape (e.g. Brother P-touch), laid out horizontally to
+          match the tape. In the print dialog, set scale to 100% and disable extra margins/headers
+          for the closest fit.
         </p>
       </div>
 
-      {/* @page below sets the printed page to 36mm wide — this is the piece
-          that tells the browser's print dialog the label width. Height is
-          left generous since continuous tape auto-cuts to content; trim any
-          leftover blank tape via your printer driver's settings if needed. */}
+      {/* @page here sets the tape's fixed dimension (height, 36mm) — width
+          is a generous fixed guess since continuous tape length is
+          auto-cut by the printer driver based on content. */}
       <style>{`
         @page {
-          size: 36mm 70mm;
+          size: 100mm 36mm;
           margin: 2mm;
         }
         @media print {
@@ -46,14 +59,18 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
         }
       `}</style>
 
-      <div className="mx-auto flex w-[32mm] flex-col items-center gap-1 rounded-md border border-border bg-surface p-2 text-center print:w-[32mm] print:border-none print:p-0">
+      <div className="mx-auto flex items-center gap-3 rounded-md border border-border bg-surface p-2 print:border-none print:p-0" style={{ height: "32mm" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} className="w-full" />
-        <p className="font-mono text-[10px] font-semibold text-ink leading-tight">{asset.assetCode}</p>
-        <p className="text-[10px] text-ink leading-tight break-words">{asset.name}</p>
+        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} style={{ height: "24mm", width: "auto" }} />
+        <p className="font-mono text-[10px] font-semibold text-ink" style={verticalTextStyle}>
+          {asset.assetCode}
+        </p>
+        <p className="text-[10px] text-ink" style={verticalTextStyle}>
+          {asset.name}
+        </p>
         {purchaseMonthYear && (
-          <p className="text-[9px] text-ink-soft leading-tight">
-            <span className="font-medium">MM/YYYY</span> {purchaseMonthYear}
+          <p className="text-[10px] text-ink-soft" style={verticalTextStyle}>
+            {purchaseMonthYear}
           </p>
         )}
       </div>
