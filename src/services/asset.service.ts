@@ -125,6 +125,7 @@ export async function createAsset(input: CreateAssetInput, actorUserId: string |
       notes: input.notes,
       createdBy: actorUserId ?? undefined,
       qrCodeValue: assetCode, // QR payload = asset code for Phase 2; Phase 6 adds real QR image generation
+      barcodeValue: assetCode, // Code128 payload for printed labels — see lib/barcode.ts
     },
     include: { category: true, model: true, vendor: true, department: true, currentRoom: true },
   });
