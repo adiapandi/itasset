@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +37,12 @@ export default function LoginPage() {
       setError("Email or password is incorrect.");
       return;
     }
-    router.push("/dashboard");
+
+    // Preserves where the person was headed — e.g. scanning an asset's QR
+    // code while logged out sends them here with ?callbackUrl=/assets/xyz,
+    // and login should land them back there, not on the generic dashboard.
+    const callbackUrl = searchParams.get("callbackUrl");
+    router.push(callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard");
   }
 
   return (
