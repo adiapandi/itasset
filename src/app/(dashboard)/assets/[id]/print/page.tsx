@@ -59,17 +59,17 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
         }
       `}</style>
 
-      <div className="mx-auto flex items-center gap-3 rounded-md border border-border bg-surface p-2 print:border-none print:p-0" style={{ height: "32mm" }}>
+      <div className="mx-auto flex items-center gap-1.5 rounded-md border border-border bg-surface p-2 print:border-none print:p-0" style={{ height: "32mm" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} style={{ height: "24mm", width: "auto" }} />
-        <p className="font-mono text-[10px] font-semibold text-ink" style={verticalTextStyle}>
+        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} style={{ height: "12mm", width: "auto" }} />
+        <p className="font-mono text-[9px] font-semibold text-ink" style={verticalTextStyle}>
           {asset.assetCode}
         </p>
-        <p className="text-[10px] text-ink" style={verticalTextStyle}>
+        <p className="text-[9px] text-ink" style={verticalTextStyle}>
           {asset.name}
         </p>
         {purchaseMonthYear && (
-          <p className="text-[10px] text-ink-soft" style={verticalTextStyle}>
+          <p className="text-[9px] text-ink-soft" style={verticalTextStyle}>
             {purchaseMonthYear}
           </p>
         )}
