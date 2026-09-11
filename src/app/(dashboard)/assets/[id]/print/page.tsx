@@ -35,12 +35,12 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
         </p>
       </div>
 
-      {/* Barcode stays normal (unrotated) orientation — scannable without
-          turning the tape. Each text field is rotated -90deg (reads
-          bottom-to-top) via RotatedLabel, matching the physical label. */}
+      {/* Everything — barcode included — is rotated -90deg together, so the
+          whole label runs "upward" along the tape's length instead of
+          sideways. Barcodes scan fine at any rotation, so this is safe. */}
       <style>{`
         @page {
-          size: 80mm 36mm;
+          size: 40mm 65mm;
           margin: 2mm;
         }
         @media print {
@@ -48,22 +48,27 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
         }
       `}</style>
 
-      <div className="mx-auto flex items-end gap-1.5 rounded-md border border-border bg-surface p-2 print:border-none print:p-0" style={{ height: "32mm" }}>
-        {/* Bounding box + object-fit:contain instead of height-only sizing —
-            a long asset code (more bars) no longer blows up the barcode's
-            width; it always fits within this box, proportions preserved. */}
-        <div style={{ width: "45mm", height: "26mm", flexShrink: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={barcodeDataUrl}
-            alt={`Barcode for ${asset.assetCode}`}
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          />
-        </div>
+      <div className="mx-auto flex items-center gap-1" style={{ width: "36mm" }}>
+        {/* Barcode: natural (pre-rotation) box is wide x short (55mm x 16mm)
+            since that's a barcode's natural shape; object-fit:contain keeps
+            it undistorted. After -90deg rotation it becomes the tall,
+            narrow shape declared by the outer RotatedLabel box. */}
+        <RotatedLabel boxWidth="16mm" boxHeight="55mm">
+          <div style={{ width: "55mm", height: "16mm" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={barcodeDataUrl}
+              alt={`Barcode for ${asset.assetCode}`}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
+          </div>
+        </RotatedLabel>
 
-        <RotatedLabel text={asset.assetCode} boxHeight="26mm" fontSizeMm="2.2mm" bold mono />
-        <RotatedLabel text={asset.name} boxHeight="26mm" fontSizeMm="2.6mm" bold />
-        {purchaseMonthYear && <RotatedLabel text={purchaseMonthYear} boxHeight="26mm" fontSizeMm="2.2mm" />}
+        <RotatedLabel text={asset.assetCode} boxWidth="4mm" boxHeight="55mm" fontSizeMm="2.4mm" bold mono />
+        <RotatedLabel text={asset.name} boxWidth="4mm" boxHeight="55mm" fontSizeMm="2.8mm" bold />
+        {purchaseMonthYear && (
+          <RotatedLabel text={purchaseMonthYear} boxWidth="4mm" boxHeight="55mm" fontSizeMm="2.4mm" />
+        )}
       </div>
     </div>
   );
