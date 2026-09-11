@@ -6,7 +6,6 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getAssetById } from "@/services/asset.service";
 import { generateBarcodeDataUrl } from "@/lib/barcode";
 import { PrintButton } from "./PrintButton";
-import { RotatedLabel } from "./RotatedLabel";
 
 function formatMonthYear(d: Date | null) {
   if (!d) return null;
@@ -30,14 +29,19 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
       <div className="print:hidden mb-4 flex items-center gap-3">
         <PrintButton />
         <p className="text-xs text-ink-soft">
-          Sized for a 36mm continuous label tape. In the print dialog, set scale to 100% and
+          Sized for a 36mm-wide continuous label tape. In the print dialog, set scale to 100% and
           disable extra margins/headers for the closest fit.
         </p>
       </div>
 
+      {/* Standard, non-rotated vertical label: 36mm wide, height grows with
+          content. No CSS rotation trickery — everything reads normally
+          top-to-bottom, the way almost every barcode label is designed.
+          The tape's own feed/orientation on your printer is what determines
+          how it looks once applied, not this markup. */}
       <style>{`
         @page {
-          size: 90mm 36mm;
+          size: 36mm 40mm;
           margin: 2mm;
         }
         @media print {
@@ -45,18 +49,12 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
         }
       `}</style>
 
-      {/* Barcode stays in normal (unrotated) reading orientation — this is
-          what keeps it scannable without turning the tape. Each text field
-          is independently rotated -90deg (reads bottom-to-top) inside a
-          fixed-size box, via RotatedLabel — a plain CSS transform, not
-          writing-mode, so the rotation direction is unambiguous. */}
-      <div className="mx-auto flex items-end gap-1.5 rounded-md border border-border bg-surface p-2 print:border-none print:p-0" style={{ height: "32mm" }}>
+      <div className="mx-auto flex w-[32mm] flex-col items-center gap-1 rounded-md border border-border bg-surface p-2 text-center print:w-[32mm] print:border-none print:p-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} style={{ height: "28mm", width: "auto" }} />
-
-        <RotatedLabel text={asset.assetCode} boxHeight="28mm" fontSizeMm="2.2mm" bold mono />
-        <RotatedLabel text={asset.name} boxHeight="28mm" fontSizeMm="2.6mm" bold />
-        {purchaseMonthYear && <RotatedLabel text={purchaseMonthYear} boxHeight="28mm" fontSizeMm="2.2mm" />}
+        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} className="w-full" />
+        <p className="font-mono text-[9px] font-semibold text-ink leading-tight">{asset.assetCode}</p>
+        <p className="text-[9px] text-ink leading-tight break-words">{asset.name}</p>
+        {purchaseMonthYear && <p className="text-[9px] text-ink-soft leading-tight">{purchaseMonthYear}</p>}
       </div>
     </div>
   );
