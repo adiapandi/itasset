@@ -1,29 +1,23 @@
-/**
- * Renders `text` rotated -90deg (counterclockwise) inside a fixed-size box,
- * so it reads bottom-to-top — matching the physical label orientation.
- * Using an explicit transform (not CSS writing-mode) keeps the rotation
- * direction predictable regardless of browser/font rendering quirks.
- *
- * boxHeight is the box's height BEFORE rotation, which becomes the text's
- * visual reading length after rotation — keep it under the tape's usable
- * height (e.g. "28mm" on a 36mm tape) so nothing gets clipped.
- */
 export function RotatedLabel({
   text,
+  children,
+  boxWidth,
   boxHeight,
   fontSizeMm,
   bold = false,
   mono = false,
 }: {
-  text: string;
+  text?: string;
+  children?: React.ReactNode;
+  boxWidth: string;
   boxHeight: string;
-  fontSizeMm: string;
+  fontSizeMm?: string;
   bold?: boolean;
   mono?: boolean;
 }) {
   return (
-    <div style={{ width: fontSizeMm, height: boxHeight, position: "relative", flexShrink: 0 }}>
-      <span
+    <div style={{ width: boxWidth, height: boxHeight, position: "relative", flexShrink: 0 }}>
+      <div
         style={{
           position: "absolute",
           left: "50%",
@@ -35,8 +29,8 @@ export function RotatedLabel({
           fontFamily: mono ? "var(--font-plex-mono)" : undefined,
         }}
       >
-        {text}
-      </span>
+        {children ?? text}
+      </div>
     </div>
   );
 }
