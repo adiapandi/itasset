@@ -40,7 +40,7 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
           bottom-to-top) via RotatedLabel, matching the physical label. */}
       <style>{`
         @page {
-          size: 90mm 36mm;
+          size: 80mm 36mm;
           margin: 2mm;
         }
         @media print {
@@ -49,12 +49,21 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
       `}</style>
 
       <div className="mx-auto flex items-end gap-1.5 rounded-md border border-border bg-surface p-2 print:border-none print:p-0" style={{ height: "32mm" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={barcodeDataUrl} alt={`Barcode for ${asset.assetCode}`} style={{ height: "28mm", width: "auto" }} />
+        {/* Bounding box + object-fit:contain instead of height-only sizing —
+            a long asset code (more bars) no longer blows up the barcode's
+            width; it always fits within this box, proportions preserved. */}
+        <div style={{ width: "45mm", height: "26mm", flexShrink: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={barcodeDataUrl}
+            alt={`Barcode for ${asset.assetCode}`}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        </div>
 
-        <RotatedLabel text={asset.assetCode} boxHeight="28mm" fontSizeMm="2.2mm" bold mono />
-        <RotatedLabel text={asset.name} boxHeight="28mm" fontSizeMm="2.6mm" bold />
-        {purchaseMonthYear && <RotatedLabel text={purchaseMonthYear} boxHeight="28mm" fontSizeMm="2.2mm" />}
+        <RotatedLabel text={asset.assetCode} boxHeight="26mm" fontSizeMm="2.2mm" bold mono />
+        <RotatedLabel text={asset.name} boxHeight="26mm" fontSizeMm="2.6mm" bold />
+        {purchaseMonthYear && <RotatedLabel text={purchaseMonthYear} boxHeight="26mm" fontSizeMm="2.2mm" />}
       </div>
     </div>
   );
