@@ -48,27 +48,39 @@ export default async function AssetLabelPrintPage({ params }: { params: { id: st
         }
       `}</style>
 
-      <div className="mx-auto flex items-center gap-1" style={{ width: "36mm" }}>
-        {/* Barcode: natural (pre-rotation) box is wide x short (55mm x 16mm)
-            since that's a barcode's natural shape; object-fit:contain keeps
-            it undistorted. After -90deg rotation it becomes the tall,
-            narrow shape declared by the outer RotatedLabel box. */}
-        <RotatedLabel boxWidth="16mm" boxHeight="55mm">
-          <div style={{ width: "55mm", height: "16mm" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={barcodeDataUrl}
-              alt={`Barcode for ${asset.assetCode}`}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          </div>
-        </RotatedLabel>
+      {/* On screen this sits in a dashed frame showing the tape's real
+          boundary, so the preview reads as a label rather than floating
+          content. The frame is print:hidden — it never appears on the tape. */}
+      <div
+        className="mx-auto rounded border border-dashed border-border bg-surface p-2 print:border-0 print:bg-transparent print:p-0"
+        style={{ width: "40mm" }}
+      >
+        <p className="print:hidden mb-1 text-center text-[8px] uppercase tracking-wide text-ink-soft">
+          36mm tape
+        </p>
 
-        <RotatedLabel text={asset.assetCode} boxWidth="4mm" boxHeight="55mm" fontSizeMm="2.4mm" bold mono />
-        <RotatedLabel text={asset.name} boxWidth="4mm" boxHeight="55mm" fontSizeMm="2.8mm" bold />
-        {purchaseMonthYear && (
-          <RotatedLabel text={purchaseMonthYear} boxWidth="4mm" boxHeight="55mm" fontSizeMm="2.4mm" />
-        )}
+        <div className="flex items-center justify-center gap-1" style={{ height: "65mm" }}>
+          {/* Barcode: natural (pre-rotation) box is wide x short (55mm x 16mm)
+              since that's a barcode's natural shape; object-fit:contain keeps
+              it undistorted. After -90deg rotation it becomes the tall,
+              narrow shape declared by the outer RotatedLabel box. */}
+          <RotatedLabel boxWidth="16mm" boxHeight="55mm">
+            <div style={{ width: "55mm", height: "16mm" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={barcodeDataUrl}
+                alt={`Barcode for ${asset.assetCode}`}
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
+            </div>
+          </RotatedLabel>
+
+          <RotatedLabel text={asset.assetCode} boxWidth="5mm" boxHeight="55mm" fontSizeMm="3.4mm" bold mono />
+          <RotatedLabel text={asset.name} boxWidth="5.5mm" boxHeight="55mm" fontSizeMm="4mm" bold />
+          {purchaseMonthYear && (
+            <RotatedLabel text={purchaseMonthYear} boxWidth="5mm" boxHeight="55mm" fontSizeMm="3.4mm" />
+          )}
+        </div>
       </div>
     </div>
   );
