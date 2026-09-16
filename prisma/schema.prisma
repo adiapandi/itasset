@@ -553,12 +553,10 @@ enum AuditItemResult {
   EXTRA          // scanned in this room but wasn't in the expected snapshot
 }
 
-/**
- * A room-scoped stock-take. At creation, every asset currently in `room`
- * is snapshotted into `items` as the "expected" list — this snapshot is
- * deliberately frozen at start time so a transfer completing mid-audit
- * doesn't retroactively change what the auditor was supposed to find.
- */
+// A room-scoped stock-take. At creation, every asset currently in `room`
+// is snapshotted into `items` as the "expected" list — this snapshot is
+// deliberately frozen at start time so a transfer completing mid-audit
+// doesn't retroactively change what the auditor was supposed to find.
 model AuditSession {
   id          String             @id @default(cuid())
   name        String
