@@ -1,6 +1,6 @@
 /**
  * Central registry of permission codes.
- * Later phases add more (maintenance.*, audit.*, report.*)
+ * Later phases add more (audit.*, report.*)
  * but the pattern (module.action) and the way they're checked stays the same.
  */
 export const PERMISSIONS = {
@@ -39,6 +39,10 @@ export const PERMISSIONS = {
   TRANSFER_APPROVE: "transfer.approve", // act on a step you're eligible for (still checked per-step)
   TRANSFER_RECEIVE: "transfer.receive", // confirm receipt as the destination room's PIC
   TRANSFER_MANAGE: "transfer.manage",   // cancel any transfer, override-approve any step, edit workflow rules
+
+  // Phase 7
+  MAINTENANCE_VIEW: "maintenance.view",
+  MAINTENANCE_MANAGE: "maintenance.manage", // create/update maintenance records, start/complete/cancel
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -70,6 +74,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.TRANSFER_RECEIVE,
     PERMISSIONS.TRANSFER_MANAGE,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.MAINTENANCE_MANAGE,
   ],
   "IT Manager": [
     PERMISSIONS.USER_VIEW,
@@ -79,6 +85,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_CREATE,
     PERMISSIONS.TRANSFER_VIEW,
     PERMISSIONS.TRANSFER_APPROVE,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.MAINTENANCE_MANAGE,
   ],
   "IT Support": [
     PERMISSIONS.ASSET_VIEW,
@@ -87,6 +95,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.ROOM_VIEW,
     PERMISSIONS.TRANSFER_CREATE,
     PERMISSIONS.TRANSFER_VIEW,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.MAINTENANCE_MANAGE,
   ],
   "Room PIC": [
     PERMISSIONS.ASSET_VIEW,
@@ -95,13 +105,21 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_VIEW,
     PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.TRANSFER_RECEIVE,
+    PERMISSIONS.MAINTENANCE_VIEW,
   ],
   "Department Manager": [
     PERMISSIONS.ASSET_VIEW,
     PERMISSIONS.ROOM_VIEW,
     PERMISSIONS.TRANSFER_VIEW,
     PERMISSIONS.TRANSFER_APPROVE,
+    PERMISSIONS.MAINTENANCE_VIEW,
   ],
-  Auditor: [PERMISSIONS.AUDIT_LOG_VIEW, PERMISSIONS.ASSET_VIEW, PERMISSIONS.ROOM_VIEW, PERMISSIONS.TRANSFER_VIEW],
+  Auditor: [
+    PERMISSIONS.AUDIT_LOG_VIEW,
+    PERMISSIONS.ASSET_VIEW,
+    PERMISSIONS.ROOM_VIEW,
+    PERMISSIONS.TRANSFER_VIEW,
+    PERMISSIONS.MAINTENANCE_VIEW,
+  ],
   Employee: [PERMISSIONS.ASSET_VIEW_OWN],
 };
