@@ -1,6 +1,6 @@
 /**
  * Central registry of permission codes.
- * Later phases add more (audit.*, report.*)
+ * Later phases add more (report.*, notification.*)
  * but the pattern (module.action) and the way they're checked stays the same.
  */
 export const PERMISSIONS = {
@@ -43,6 +43,10 @@ export const PERMISSIONS = {
   // Phase 7
   MAINTENANCE_VIEW: "maintenance.view",
   MAINTENANCE_MANAGE: "maintenance.manage", // create/update maintenance records, start/complete/cancel
+
+  // Phase 8
+  AUDIT_VIEW: "audit.view",     // see audit sessions and their results
+  AUDIT_MANAGE: "audit.manage", // start a session, scan assets, complete/cancel
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -76,6 +80,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_MANAGE,
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.MAINTENANCE_MANAGE,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_MANAGE,
   ],
   "IT Manager": [
     PERMISSIONS.USER_VIEW,
@@ -87,6 +93,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.MAINTENANCE_MANAGE,
+    PERMISSIONS.AUDIT_VIEW,
   ],
   "IT Support": [
     PERMISSIONS.ASSET_VIEW,
@@ -106,6 +113,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.TRANSFER_RECEIVE,
     PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_MANAGE,
   ],
   "Department Manager": [
     PERMISSIONS.ASSET_VIEW,
@@ -113,6 +122,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_VIEW,
     PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
   ],
   Auditor: [
     PERMISSIONS.AUDIT_LOG_VIEW,
@@ -120,6 +130,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.ROOM_VIEW,
     PERMISSIONS.TRANSFER_VIEW,
     PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.AUDIT_MANAGE,
   ],
   Employee: [PERMISSIONS.ASSET_VIEW_OWN],
 };
