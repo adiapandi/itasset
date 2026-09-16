@@ -5,12 +5,15 @@ import { hasPermission } from "@/lib/authz";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getAssetById } from "@/services/asset.service";
 import { getAssignmentHistory } from "@/services/assignment.service";
+import { listMaintenanceRecords } from "@/services/maintenance.service";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge, ConditionBadge } from "@/components/shared/Badges";
 import { TransferStatusBadge } from "@/components/shared/TransferStatusBadge";
+import { MaintenanceStatusBadge } from "@/components/shared/MaintenanceStatusBadge";
 import { AssignEmployeeForm } from "./AssignEmployeeForm";
 import { UnassignEmployeeButton } from "./UnassignEmployeeButton";
 import { RequestTransferForm } from "./RequestTransferForm";
+import { ScheduleMaintenanceForm } from "./ScheduleMaintenanceForm";
 import { generateQrDataUrl, buildScanUrl } from "@/lib/qrcode";
 import Link from "next/link";
 
@@ -40,8 +43,10 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
   const canAssign = hasPermission(session, PERMISSIONS.ASSET_ASSIGN);
   const canRequestTransfer = hasPermission(session, PERMISSIONS.TRANSFER_CREATE);
+  const canManageMaintenance = hasPermission(session, PERMISSIONS.MAINTENANCE_MANAGE);
+  const canViewMaintenance = hasPermission(session, PERMISSIONS.MAINTENANCE_VIEW);
   const scanUrl = buildScanUrl(asset.assetCode);
-  const [history, users, rooms, activeTransfer, qrDataUrl] = await Promise.all([
+  const [history, users, rooms, activeTransfer, qrDataUrl, maintenanceRecords, vendors] = await Promise.all([
     getAssignmentHistory(asset.id),
     canAssign
       ? prisma.user.findMany({ where: { deletedAt: null, isActive: true }, orderBy: { name: "asc" } })
@@ -54,7 +59,11 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       orderBy: { requestedAt: "desc" },
     }),
     generateQrDataUrl(scanUrl),
+    canViewMaintenance ? listMaintenanceRecords({ assetId: asset.id }) : Promise.resolve([]),
+    canManageMaintenance ? prisma.vendor.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
+
+  const activeMaintenance = maintenanceRecords.find((m) => m.status === "SCHEDULED" || m.status === "IN_PROGRESS");
 
   const fields: [string, string][] = [
     ["Category", asset.category.name],
@@ -155,6 +164,49 @@ export default async function AssetDetailPage({ params }: { params: { id: string
           ) : (
             <div className="mt-3">
               <RequestTransferForm assetId={asset.id} rooms={rooms} currentRoomId={asset.currentRoomId} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Maintenance — scheduling flips Asset.status to UNDER_MAINTENANCE
+          automatically (see maintenance.service), and reverts it on
+          complete/cancel. */}
+      {canViewMaintenance && (
+        <div className="mt-4 rounded-md border border-border bg-surface p-5">
+          <p className="text-sm font-medium text-ink">Maintenance</p>
+
+          {activeMaintenance ? (
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-sm text-ink-soft">{activeMaintenance.maintenanceType} in progress.</p>
+              <Link
+                href={`/maintenance/${activeMaintenance.id}`}
+                className="flex items-center gap-2 text-sm text-accent hover:underline"
+              >
+                View <MaintenanceStatusBadge status={activeMaintenance.status} />
+              </Link>
+            </div>
+          ) : (
+            canManageMaintenance && (
+              <div className="mt-3">
+                <ScheduleMaintenanceForm assetId={asset.id} vendors={vendors} />
+              </div>
+            )
+          )}
+
+          {maintenanceRecords.length > 0 && (
+            <div className="mt-4 border-t border-border pt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">History</p>
+              <ul className="mt-2 space-y-1">
+                {maintenanceRecords.map((m) => (
+                  <li key={m.id} className="flex items-center justify-between text-xs">
+                    <Link href={`/maintenance/${m.id}`} className="text-ink-soft hover:text-accent hover:underline">
+                      {m.maintenanceType} · {new Date(m.startDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </Link>
+                    <MaintenanceStatusBadge status={m.status} />
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
