@@ -1,9 +1,11 @@
-// iAsset — schema through Phase 5
+// iAsset — schema through Phase 7
 // Phase 1: Identity & Access (users/roles/permissions) + audit trail.
 // Phase 2: Asset Catalog (vendors/categories/models/assets).
 // Phase 3: Locations (buildings/rooms/room PICs) + Asset.currentRoomId/currentPicId.
 // Phase 4: Employee assignment (Asset.assignedUserId) + AssetAssignment history log.
 // Phase 5: Transfer + configurable approval workflow + room movement history.
+// Phase 6: QR code (generated on demand from Asset.assetCode, not stored).
+// Phase 7: Maintenance records, syncing Asset.status to UNDER_MAINTENANCE while active.
 // (the full target schema is sketched in the architecture doc / ERD).
 
 generator client {
@@ -143,6 +145,7 @@ model Vendor {
   address       String?
 
   assets        Asset[]
+  maintenanceRecords MaintenanceRecord[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -257,6 +260,7 @@ model Asset {
 
   assignments       AssetAssignment[]
   transfers         AssetTransfer[]
+  maintenanceRecords MaintenanceRecord[]
 
   createdBy         String?
   createdAt         DateTime        @default(now())
@@ -483,4 +487,46 @@ model TransferApproval {
   actedAt    DateTime       @default(now())
 
   @@map("transfer_approvals")
+}
+
+// ===================== MAINTENANCE (Phase 7) =====================
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// While a record is SCHEDULED or IN_PROGRESS, the asset's status is kept in
+// sync as UNDER_MAINTENANCE by maintenance.service — see the same
+// AUTO_MANAGED_STATUSES guard pattern used for employee assignment, so an
+// asset that's DAMAGED/LOST/RETIRED never gets silently overwritten.
+model MaintenanceRecord {
+  id                 String            @id @default(cuid())
+  asset              Asset             @relation(fields: [assetId], references: [id])
+  assetId            String
+
+  maintenanceType    String
+  vendor             Vendor?           @relation(fields: [vendorId], references: [id])
+  vendorId           String?
+  technicianName     String?
+
+  startDate          DateTime          @default(now())
+  endDate            DateTime?
+
+  problemDescription String?
+  actionTaken        String?
+  cost               Decimal?          @db.Decimal(14, 2)
+  warrantyClaim      Boolean           @default(false)
+  result             String?
+  status             MaintenanceStatus @default(SCHEDULED)
+  notes              String?
+
+  createdBy          String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([assetId, status])
+  @@map("maintenance_records")
 }
