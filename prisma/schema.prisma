@@ -6,6 +6,8 @@
 // Phase 5: Transfer + configurable approval workflow + room movement history.
 // Phase 6: QR code (generated on demand from Asset.assetCode, not stored).
 // Phase 7: Maintenance records, syncing Asset.status to UNDER_MAINTENANCE while active.
+// Phase 8: Room-scoped stock-take audits (AuditSession/AuditItem) — scan against an
+// expected-assets snapshot to find missing/misplaced/damaged assets.
 // (the full target schema is sketched in the architecture doc / ERD).
 
 generator client {
@@ -59,6 +61,8 @@ model User {
   transfersRequested AssetTransfer[] @relation("TransferRequestedBy")
   transferActions TransferApproval[]
   specificApprovalRules ApprovalWorkflowRule[] @relation("ApprovalSpecificUser")
+  auditSessionsStarted AuditSession[] @relation("AuditStartedBy")
+  auditItemsScanned AuditItem[] @relation("AuditItemScannedBy")
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -261,6 +265,7 @@ model Asset {
   assignments       AssetAssignment[]
   transfers         AssetTransfer[]
   maintenanceRecords MaintenanceRecord[]
+  auditItems        AuditItem[]
 
   createdBy         String?
   createdAt         DateTime        @default(now())
@@ -358,6 +363,7 @@ model Room {
   assets       Asset[]
   transfersFrom AssetTransfer[] @relation("TransferFromRoom")
   transfersTo   AssetTransfer[] @relation("TransferToRoom")
+  auditSessions AuditSession[]
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -529,4 +535,65 @@ model MaintenanceRecord {
 
   @@index([assetId, status])
   @@map("maintenance_records")
+}
+
+// ===================== ASSET AUDIT / STOCK-TAKE (Phase 8) =====================
+
+enum AuditSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AuditItemResult {
+  VERIFIED       // scanned, found in the room it was expected in
+  WRONG_LOCATION // scanned, but the system's current room doesn't match where it was found
+  DAMAGED        // scanned and flagged damaged by the auditor
+  MISSING        // expected in this room, never scanned during the session
+  EXTRA          // scanned in this room but wasn't in the expected snapshot
+}
+
+/**
+ * A room-scoped stock-take. At creation, every asset currently in `room`
+ * is snapshotted into `items` as the "expected" list — this snapshot is
+ * deliberately frozen at start time so a transfer completing mid-audit
+ * doesn't retroactively change what the auditor was supposed to find.
+ */
+model AuditSession {
+  id          String             @id @default(cuid())
+  name        String
+  room        Room               @relation(fields: [roomId], references: [id])
+  roomId      String
+  status      AuditSessionStatus @default(IN_PROGRESS)
+
+  startedBy   User               @relation("AuditStartedBy", fields: [startedById], references: [id])
+  startedById String
+  startedAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  items       AuditItem[]
+
+  @@map("audit_sessions")
+}
+
+model AuditItem {
+  id             String            @id @default(cuid())
+  auditSession   AuditSession      @relation(fields: [auditSessionId], references: [id])
+  auditSessionId String
+  asset          Asset             @relation(fields: [assetId], references: [id])
+  assetId        String
+
+  // expectedRoomId is fixed at snapshot time (session.roomId for expected
+  // items) or, for an EXTRA/WRONG_LOCATION find, the asset's actual system
+  // room at scan time — so it always reflects "where it was supposed to be".
+  expectedRoomId String?
+  scannedRoomId  String?
+  result         AuditItemResult?
+  scannedBy      User?             @relation("AuditItemScannedBy", fields: [scannedById], references: [id])
+  scannedById    String?
+  scannedAt      DateTime?
+  notes          String?
+
+  @@unique([auditSessionId, assetId])
+  @@map("audit_items")
 }
