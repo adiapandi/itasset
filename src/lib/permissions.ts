@@ -14,7 +14,7 @@ export const PERMISSIONS = {
 
   AUDIT_LOG_VIEW: "audit_log.view",
 
-  SETTINGS_MANAGE: "settings.manage",
+  SETTINGS_MANAGE: "settings.manage",	
 
   ASSET_VIEW: "asset.view",           // full visibility across all assets
   ASSET_VIEW_OWN: "asset.view_own",   // only assets assigned to the current user
@@ -47,6 +47,9 @@ export const PERMISSIONS = {
   // Phase 8
   AUDIT_VIEW: "audit.view",     // see audit sessions and their results
   AUDIT_MANAGE: "audit.manage", // start a session, scan assets, complete/cancel
+
+  // Phase 9
+  REPORT_VIEW: "report.view",
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -82,6 +85,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.MAINTENANCE_MANAGE,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.AUDIT_MANAGE,
+    PERMISSIONS.REPORT_VIEW,
   ],
   "IT Manager": [
     PERMISSIONS.USER_VIEW,
@@ -94,6 +98,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.MAINTENANCE_MANAGE,
     PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.REPORT_VIEW,
   ],
   "IT Support": [
     PERMISSIONS.ASSET_VIEW,
@@ -104,6 +109,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_VIEW,
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.MAINTENANCE_MANAGE,
+    PERMISSIONS.REPORT_VIEW,
   ],
   "Room PIC": [
     PERMISSIONS.ASSET_VIEW,
@@ -115,6 +121,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.AUDIT_MANAGE,
+    PERMISSIONS.REPORT_VIEW,
   ],
   "Department Manager": [
     PERMISSIONS.ASSET_VIEW,
@@ -123,6 +130,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.REPORT_VIEW,
   ],
   Auditor: [
     PERMISSIONS.AUDIT_LOG_VIEW,
@@ -132,6 +140,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     PERMISSIONS.MAINTENANCE_VIEW,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.AUDIT_MANAGE,
+    PERMISSIONS.REPORT_VIEW,
   ],
   Employee: [PERMISSIONS.ASSET_VIEW_OWN],
 };
