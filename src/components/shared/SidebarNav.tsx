@@ -41,7 +41,7 @@ const SECTIONS: NavSection[] = [
   },
   { title: "Maintenance", items: [{ label: "Maintenance", href: "/maintenance", enabled: true }] },
   { title: "Audits", items: [{ label: "Audit Sessions", href: "/audits", enabled: true }] },
-  { title: "Reports", items: [{ label: "Reports", href: "/reports", enabled: false }] },
+  { title: "Reports", items: [{ label: "Reports", href: "/reports", enabled: true }] },
   {
     title: "Administration",
     items: [
